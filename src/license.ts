@@ -43,7 +43,11 @@ export function getLicenseState(): LicenseState {
   const verdict = readVerdict();
   return {
     hasToken: Boolean(token),
-    unlocked: Boolean(token) && verdict?.valid !== false,
+    // A token is only an identifier, not proof of purchase. New checkout-return
+    // and manually restored tokens stay locked until the billing service has
+    // positively verified them. A cached positive verdict remains usable
+    // offline so a temporary outage does not take paid access away.
+    unlocked: Boolean(token) && verdict?.valid === true,
     checking: Boolean(token) && (!verdict || Date.now() - verdict.checkedAt >= DAY),
     reason: verdict?.reason,
   };
@@ -57,10 +61,12 @@ export async function verifyLicense(force = false): Promise<LicenseState> {
   try {
     const response = await fetch(`${BILLING_BASE}/api/v1/products/thought-parking/verify?license=${encodeURIComponent(token)}`);
     if (!response.ok) throw new Error('Verification service unavailable.');
-    const result = await response.json() as { valid: boolean; reason?: string };
+    const result = await response.json() as { valid?: unknown; reason?: string };
+    if (typeof result.valid !== 'boolean') throw new Error('Verification service returned an invalid response.');
     localStorage.setItem(VERDICT_KEY, JSON.stringify({ valid: result.valid, reason: result.reason, checkedAt: Date.now() }));
   } catch {
-    // Keep the last trusted verdict, or optimistic access for a newly returned token, while offline.
+    const state = getLicenseState();
+    return { ...state, checking: false, reason: 'verification_unavailable' };
   }
   return getLicenseState();
 }

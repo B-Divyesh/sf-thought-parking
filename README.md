@@ -39,9 +39,11 @@ Preview the production build with `npm run preview`.
 
 ```sh
 npm test
+npm run typecheck
+npm run lint
 ```
 
-This runs Vitest domain tests and Playwright 1.58.2 browser tests in desktop Chromium and a 390×844 mobile viewport. The suite covers text capture, persistence, review decisions and restoration, real MediaRecorder state, keyboard capture, direct legal routes, axe serious/critical accessibility checks, license restore, responsive overflow, and a service-worker-backed offline reload.
+The suite uses Vitest plus Playwright 1.58.2 in desktop Chromium and a 390×844 mobile viewport. It covers text capture, persistence, review decisions and restoration, real MediaRecorder state, keyboard capture, direct legal routes, axe serious/critical accessibility checks, fail-closed license restore and revocation, 44px touch targets, production response policy, responsive overflow, and a service-worker-backed offline reload.
 
 ## Billing configuration
 
@@ -55,6 +57,6 @@ The factory must register the product before checkout can succeed. Do not add a 
 
 ## Data and deployment
 
-All user content stays in browser IndexedDB. The license token and tiny UI preferences use `localStorage`. See `/privacy/` and `/terms/` for the user-facing policies. Static hosting must serve the contents of `dist/`; route-specific `index.html` files are created for `/review/`, `/settings/`, `/privacy/`, and `/terms/` so direct links work without rewrite rules.
+All user content stays in browser IndexedDB. The license token and tiny UI preferences use `localStorage`. See `/privacy/` and `/terms/` for the user-facing policies. Static hosting must serve the contents of `dist/`; route-specific `index.html` files are created for `/review/`, `/settings/`, `/privacy/`, and `/terms/` so direct links work without rewrite rules. `public/staticwebapp.config.json` supplies the Azure Static Web Apps fallback, immutable asset caching, and browser security headers.
 
 The cassette-era visual system and generated-art provenance are documented in [`.factory/design.md`](.factory/design.md). This project is MIT licensed.

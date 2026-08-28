@@ -3,7 +3,7 @@
   "short_name": "Parking",
   "description": "Catch an interrupting thought in seconds, then return to what you were doing.",
   "id": "/",
-  "start_url": "/?v=1.0.0",
+  "start_url": "/?v=1.0.1",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F3E7CF",

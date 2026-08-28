@@ -87,6 +87,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 .wordmark {
   display: inline-flex;
+  min-height: 44px;
   width: fit-content;
   align-items: center;
   gap: 10px;
@@ -300,6 +301,12 @@ kbd { padding: 1px 4px; border: 1px solid var(--ink-soft); border-radius: 2px; b
 .legal-lede { margin: 28px 0 54px; font-size: 21px; }
 .legal-page h2 { margin-top: 44px; font-size: 25px; letter-spacing: -.03em; }
 .legal-page p { max-width: 68ch; }
+.legal-page a, footer nav a {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
 
 footer {
   padding: 30px clamp(20px, 5vw, 56px) max(30px, env(safe-area-inset-bottom));
@@ -312,7 +319,7 @@ footer {
   font-size: 13px;
 }
 footer p { margin: 0; }
-footer nav { display: flex; gap: 20px; }
+footer nav { display: flex; align-items: center; gap: 20px; }
 footer .provenance { grid-column: 1 / -1; color: #cfc3aa; font-size: 11px; }
 
 .toast-region { position: fixed; z-index: 50; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); max-width: min(420px, calc(100vw - 40px)); }

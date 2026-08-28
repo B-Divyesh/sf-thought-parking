@@ -1,6 +1,6 @@
 import { createExport, fromPortable, getThoughts, saveThought, saveThoughts } from './db';
 import { formatParkedTime, makeThought, MAX_THOUGHT_LENGTH, parseParkingExport, twoWeekStats } from './domain';
-import { captureLicenseFromUrl, checkoutUrl, forgetLicense, getLicenseState, LICENSE_KEY, storeLicense, verifyLicense, type LicenseState } from './license';
+import { captureLicenseFromUrl, checkoutUrl, forgetLicense, getLicenseState, storeLicense, verifyLicense, type LicenseState } from './license';
 import type { Thought, ThoughtStatus } from './types';
 
 const DRAFT_KEY = 'thought-parking:draft';
@@ -208,7 +208,7 @@ export class ThoughtParkingApp {
   private reviewView(): string {
     const parked = this.thoughts.filter((thought) => thought.status === 'parked').sort((a, b) => a.createdAt - b.createdAt);
     const handled = this.thoughts.filter((thought) => thought.status !== 'parked').sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0));
-    let reviewBody = '';
+    let reviewBody: string;
     if (!parked.length) {
       reviewBody = `<div class="empty-state"><div class="empty-reel" aria-hidden="true">◎—◎</div><h2>The lot is clear.</h2><p>There’s nothing asking for a decision. That is a real finish line.</p><a class="button-link" href="/" data-route>Return to capture</a></div>`;
     } else if (!this.reviewStarted) {
@@ -239,7 +239,12 @@ export class ThoughtParkingApp {
 
   private settingsView(): string {
     const stats = twoWeekStats(this.thoughts);
-    const verdictNotice = this.license.hasToken && !this.license.unlocked ? `<p class="license-notice" role="status">This license is no longer active${this.license.reason ? ` (${escapeHtml(this.license.reason.replaceAll('_', ' '))})` : ''}. The free capture experience is unchanged.</p>` : '';
+    const verificationUnavailable = this.license.reason === 'verification_unavailable';
+    const verdictNotice = this.license.hasToken && !this.license.unlocked
+      ? `<p class="license-notice" role="status">${verificationUnavailable
+        ? 'The license service could not be reached. Supporter features remain locked until this token can be verified.'
+        : `This license is no longer active${this.license.reason ? ` (${escapeHtml(this.license.reason.replaceAll('_', ' '))})` : ''}. The free capture experience is unchanged.`}</p>`
+      : '';
     return `<main id="main" class="data-page">
       <div class="page-heading"><p class="eyebrow">Your device, your data</p><h1>Keep the keys.</h1><p>Thoughts and voice clips live in this browser’s IndexedDB. There is no account and no sync.</p></div>
       <section class="data-section" aria-labelledby="backup-title">
@@ -501,8 +506,10 @@ export class ThoughtParkingApp {
       this.render();
       this.showToast('Supporter tape unlocked.');
     } else {
-      status.textContent = 'That license is not active. Check the token and try again.';
-      localStorage.removeItem(LICENSE_KEY);
+      status.textContent = this.license.reason === 'verification_unavailable'
+        ? 'Could not reach the license service. Nothing was unlocked or saved; check your connection and try again.'
+        : 'That license is not active. Check the token and try again.';
+      forgetLicense();
       this.license = getLicenseState();
     }
   }
