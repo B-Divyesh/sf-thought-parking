@@ -5,7 +5,7 @@ test('captures, persists, reviews, promotes, and restores a thought', async ({ p
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Park it/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Catch a thought/);
   await page.getByLabel('What pulled your attention?').fill('Look up the library opening hours');
   await page.getByRole('button', { name: /Park thought/ }).click();
   await expect(page.getByText('Thought parked.')).toBeVisible();
@@ -24,8 +24,8 @@ test('captures, persists, reviews, promotes, and restores a thought', async ({ p
   expect(errors).toEqual([]);
 });
 
-test('records a local voice clip with clear recorder state', async ({ page }) => {
-  await page.goto('/');
+test('@claim:voice-capture records a local voice clip with clear recorder state in demo', async ({ page }) => {
+  await page.goto('/demo/');
   await page.getByRole('button', { name: 'Record voice' }).click();
   await expect(page.getByText(/Recording 0:/)).toBeVisible();
   await page.waitForTimeout(250);
@@ -34,15 +34,18 @@ test('records a local voice clip with clear recorder state', async ({ page }) =>
   await page.getByRole('button', { name: /Park thought/ }).click();
   await page.getByRole('link', { name: /Review/ }).click();
   await page.getByRole('button', { name: /Start this review/ }).click();
+  await page.getByRole('button', { name: 'Archive' }).click();
+  await page.getByRole('button', { name: 'Archive' }).click();
   await expect(page.getByText('Voice note')).toBeVisible();
   await expect(page.locator('audio')).toHaveCount(1);
 });
 
-test('supports the global capture hotkey, direct legal routes, and 390px layout', async ({ page }) => {
-  await page.goto('/privacy/');
+test('@claim:global-hotkey supports the global capture hotkey, direct legal routes, and 390px layout', async ({ page }) => {
+  await page.goto('/demo/');
+  await page.getByRole('link', { name: 'Privacy' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy stays parked.');
   await page.keyboard.press('Control+Shift+Space');
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/?\?demo=1$/);
   await expect(page.getByLabel('What pulled your attention?')).toBeFocused();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
@@ -71,6 +74,25 @@ test('restores a supporter license through the Sociobot contract', async ({ page
   await page.getByLabel('Your return-to-work cue').fill('Back to the page I was reading.');
   await page.getByRole('button', { name: 'Save cue' }).click();
   await expect(page.getByText('Return cue saved.')).toBeVisible();
+});
+
+test('@claim:supporter-license shows the one-time price and restores a valid supporter license after leaving demo', async ({ page }) => {
+  await page.route('**/api/v1/products/thought-parking/verify**', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ valid: true, reason: 'ok', expires_at: null }),
+  }));
+  await page.goto('/demo/');
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await page.getByRole('link', { name: 'My data' }).click();
+  await expect(page.getByRole('link', { name: /Buy once · \$7/ })).toHaveAttribute(
+    'href', 'https://api.sociobot.in/api/v1/products/thought-parking/checkout',
+  );
+  await page.goto('/?license=demo-return-license');
+  await page.getByRole('link', { name: 'My data' }).click();
+  await expect(page.getByText('Supporter tape unlocked')).toBeVisible();
+  await expect(page.getByLabel('Your return-to-work cue')).toBeVisible();
+  await expect(page.getByText('captures / 14 days')).toBeVisible();
 });
 
 test('keeps an unverified pasted license locked when verification is unavailable', async ({ page }) => {
@@ -158,7 +180,7 @@ test('ships immutable assets and restrictive production response policies', asyn
   expect(config.globalHeaders['Permissions-Policy']).toContain('microphone=(self)');
   expect(config.globalHeaders['X-Frame-Options']).toBe('DENY');
   const worker = await (await request.get('/sw.js')).text();
-  expect(worker).toContain("const VERSION = 'thought-parking-v5'");
+  expect(worker).toContain("const VERSION = 'thought-parking-v6'");
   expect(worker).toContain('self.skipWaiting()');
   expect(worker).toContain('self.clients.claim()');
 });
@@ -172,10 +194,10 @@ test('offers an explicit action when a service-worker update is waiting', async 
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('thought-parking:apply-update'))).toBe('1');
 });
 
-test('keeps core capture traffic on the product origin', async ({ page }) => {
+test('@claim:private-local-capture keeps demo capture traffic on the product origin', async ({ page }) => {
   const origins = new Set<string>();
   page.on('request', (request) => origins.add(new URL(request.url()).origin));
-  await page.goto('/');
+  await page.goto('/demo/');
   await page.getByLabel('What pulled your attention?').fill('Private local thought');
   await page.getByRole('button', { name: /Park thought/ }).click();
   await page.getByRole('button', { name: 'Record voice' }).click();
@@ -184,14 +206,14 @@ test('keeps core capture traffic on the product origin', async ({ page }) => {
   expect([...origins]).toEqual(['http://127.0.0.1:4173']);
 });
 
-test('loads the app and existing data while offline', async ({ page, context }, testInfo) => {
+test('@claim:offline-reload loads the demo and its data while offline', async ({ page, context }, testInfo) => {
   expect(['chromium', 'mobile-390']).toContain(testInfo.project.name);
-  await page.goto('/');
+  await page.goto('/demo/');
   await page.getByLabel('What pulled your attention?').fill('Offline thought');
   await page.getByRole('button', { name: /Park thought/ }).click();
   await page.waitForFunction(() => navigator.serviceWorker?.controller);
   await context.setOffline(true);
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/demo/', { waitUntil: 'domcontentloaded' });
   const offlineState = page.getByRole('status').filter({ hasText: 'Offline · still saving' });
   await expect(offlineState).toBeVisible();
   if (testInfo.project.name === 'mobile-390') {
@@ -202,6 +224,52 @@ test('loads the app and existing data while offline', async ({ page, context }, 
   }
   await page.getByRole('link', { name: /Review/ }).click();
   await page.getByRole('button', { name: /Start this review/ }).click();
+  await page.getByRole('button', { name: 'Archive' }).click();
+  await page.getByRole('button', { name: 'Archive' }).click();
   await expect(page.getByText('Offline thought')).toBeVisible();
   await context.setOffline(false);
+});
+
+test('@claim:isolated-demo loads sample data without writing to a real parking lot', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('What pulled your attention?').fill('Real thought stays private');
+  await page.getByRole('button', { name: /Park thought/ }).click();
+  await page.getByRole('link', { name: 'Try it with sample data' }).click();
+  await expect(page).toHaveURL(/\/demo\//);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await expect(page.getByText('Check whether the library keeps spare bus passes at the desk.')).toHaveCount(0);
+  await expect(page.getByText('2', { exact: true }).first()).toBeVisible();
+  await page.getByLabel('What pulled your attention?').fill('Demo-only thought');
+  await page.getByRole('button', { name: /Park thought/ }).click();
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByRole('link', { name: /Review/ }).click();
+  await page.getByRole('button', { name: /Start this review/ }).click();
+  await expect(page.getByText('Real thought stays private')).toBeVisible();
+  await expect(page.getByText('Demo-only thought')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('demo:thought-parking:draft'))).toBeNull();
+});
+
+test('@claim:json-backup exports a versioned JSON backup from demo data', async ({ page }) => {
+  await page.goto('/settings/?demo=1');
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON' }).click();
+  const stream = await (await download).createReadStream();
+  let json = '';
+  for await (const chunk of stream!) json += chunk.toString();
+  const payload = JSON.parse(json);
+  expect(payload).toMatchObject({ product: 'thought-parking', version: 1 });
+  expect(payload.thoughts).toHaveLength(3);
+});
+
+test('sets route-specific titles and moves focus to the destination heading', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Privacy' }).click();
+  await expect(page).toHaveTitle('Privacy — Thought Parking');
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  await expect(page.locator('#route-announcer')).toHaveText('Privacy page');
+  await page.getByRole('link', { name: 'Review' }).click();
+  await expect(page).toHaveTitle('Review — Thought Parking');
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 });

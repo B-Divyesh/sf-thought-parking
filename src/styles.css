@@ -120,6 +120,20 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .network-state.is-offline { color: var(--orange-dark); font-weight: 700; }
 .network-state.is-offline::before { background: var(--orange); }
 
+.demo-banner {
+  min-height: 52px;
+  padding: 8px clamp(20px, 4vw, 56px);
+  border-bottom: var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 20px;
+  background: var(--mustard);
+  font-size: 13px;
+}
+.demo-banner strong { font-family: Arial Black, Arial, sans-serif; text-transform: uppercase; }
+.demo-banner button { min-height: 44px; padding: 6px 10px; border: 2px solid var(--ink); background: var(--paper-light); color: var(--ink); cursor: pointer; font-weight: 700; }
+
 .capture-layout {
   max-width: 1240px;
   min-height: calc(100vh - 88px);
@@ -146,6 +160,13 @@ h1 { max-width: 760px; margin: 0; font-size: clamp(2.6rem, 7vw, 5.7rem); text-tr
 h1 span { color: var(--orange-dark); }
 h2 { margin: 0 0 16px; font-size: clamp(1.7rem, 3.4vw, 2.65rem); }
 .lede { max-width: 35rem; margin: 24px 0 28px; font-size: clamp(1rem, 1.5vw, 1.18rem); }
+.first-actions { max-width: 31rem; margin: 0 0 28px; }
+.first-actions .primary-action { width: fit-content; }
+.first-actions p { margin: 10px 0; font-size: 14px; }
+.text-link { min-height: 44px; display: inline-flex; align-items: center; font-weight: 700; }
+.plain-facts { margin: 14px 0 0; padding: 0; display: grid; gap: 4px; list-style: none; font-size: 13px; font-weight: 700; }
+.plain-facts li::before { content: "■"; margin-right: 8px; color: var(--teal); }
+.demo-intro { max-width: 35rem; margin: -8px 0 28px; font-weight: 700; }
 
 .hero-art {
   max-width: 460px;
@@ -345,8 +366,8 @@ footer .provenance { grid-column: 1 / -1; color: #cfc3aa; font-size: 11px; }
   .wordmark { font-size: 12px; }
   .record-dot { width: 16px; height: 16px; }
   .site-header nav a { min-width: 44px; padding: 8px 7px; justify-content: center; font-size: 12px; }
-  .site-header nav a:last-child { font-size: 0; }
-  .site-header nav a:last-child::after { content: "Data"; font-size: 12px; }
+  .site-header nav a[href="/settings/"] { font-size: 0; }
+  .site-header nav a[href="/settings/"]::after { content: "Data"; font-size: 12px; }
   .nav-count { min-width: 22px; height: 22px; font-size: 11px; }
   /* Keep the compact online state out of the way, but never hide a loss of
      connectivity: offline capture is a core promise on phones. */
@@ -359,6 +380,9 @@ footer .provenance { grid-column: 1 / -1; color: #cfc3aa; font-size: 11px; }
   .capture-intro { display: block; }
   .capture-intro h1 { font-size: clamp(3rem, 15vw, 4.2rem); }
   .lede { margin: 18px 0 0; }
+  .first-actions { margin-top: 22px; }
+  .demo-banner { padding: 10px 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; }
+  .demo-banner strong, .demo-banner span { width: 100%; }
   .hero-art { display: none; }
   .capture-sheet { padding: 24px 18px; box-shadow: 5px 6px 0 var(--orange), 8px 9px 0 var(--ink); }
   .capture-sheet::before { width: 38px; }

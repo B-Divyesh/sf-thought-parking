@@ -7,7 +7,7 @@ const workerUrl = new URL('../dist/sw.js', import.meta.url);
 const worker = await readFile(workerUrl, 'utf8');
 await writeFile(workerUrl, worker.replace('/* INJECT_BUILD_ASSETS */ []', JSON.stringify(buildAssets)));
 
-for (const route of ['privacy', 'terms', 'review', 'settings']) {
+for (const route of ['privacy', 'terms', 'review', 'settings', 'demo']) {
   await mkdir(new URL(`../dist/${route}/`, import.meta.url), { recursive: true });
   await cp(indexUrl, new URL(`../dist/${route}/index.html`, import.meta.url));
 }

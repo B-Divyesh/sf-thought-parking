@@ -1,0 +1,51 @@
+[
+  {
+    "id": "isolated-demo",
+    "claim": "Try it with sample data without saving anything to your real parking lot.",
+    "where": "Capture first screen, /demo, README",
+    "test": "npm run test:e2e -- --grep @claim:isolated-demo",
+    "sandbox": "Fresh browser context; park one real thought, enter /demo, add a demo thought, start for real, and assert the real lot contains only the real thought."
+  },
+  {
+    "id": "private-local-capture",
+    "claim": "Thought text and voice clips stay on this device during capture.",
+    "where": "Capture voice help, Privacy, README",
+    "test": "npm run test:e2e -- --grep @claim:private-local-capture",
+    "sandbox": "Fresh /demo session; capture text and a fake-media voice clip while recording requests, then assert every request is same-origin."
+  },
+  {
+    "id": "voice-capture",
+    "claim": "Record a short voice clip and park it with a thought.",
+    "where": "Capture screen, README",
+    "test": "npm run test:e2e -- --grep @claim:voice-capture",
+    "sandbox": "Fresh /demo session with Playwright fake microphone; record, stop, park, review, and assert the local audio control is present."
+  },
+  {
+    "id": "global-hotkey",
+    "claim": "Use Ctrl/Command+Shift+Space to focus capture from anywhere.",
+    "where": "Capture screen, README",
+    "test": "npm run test:e2e -- --grep @claim:global-hotkey",
+    "sandbox": "Fresh browser context on /privacy; press the desktop shortcut and assert capture opens with its field focused."
+  },
+  {
+    "id": "json-backup",
+    "claim": "Export your parking lot as a versioned JSON backup.",
+    "where": "My data, README",
+    "test": "npm run test:e2e -- --grep @claim:json-backup",
+    "sandbox": "Fresh /settings/?demo=1 session; download Export JSON and assert product identifier, version, and every shipped sample record."
+  },
+  {
+    "id": "offline-reload",
+    "claim": "Works offline after the first visit.",
+    "where": "My data, Privacy, README",
+    "test": "npm run test:e2e -- --grep @claim:offline-reload",
+    "sandbox": "Fresh /demo session in a service-worker-controlled browser; add a thought, set browser offline, reload /demo, and review the saved thought."
+  },
+  {
+    "id": "supporter-license",
+    "claim": "A $7 one-time supporter license adds a local return snapshot and custom return cue.",
+    "where": "Landing facts, My data, README, Terms",
+    "test": "npm run test:e2e -- --grep @claim:supporter-license",
+    "sandbox": "Fresh /demo session; leave with Start for real, assert the prescribed $7 Sociobot checkout link, then mock a valid return token and assert supporter access is restored."
+  }
+]

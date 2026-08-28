@@ -1,10 +1,10 @@
-import { createExport, fromPortable, getThoughts, saveThought, saveThoughts } from './db';
+import { clearThoughts, createExport, fromPortable, getThoughts, saveThought, saveThoughts, setDatabaseName } from './db';
 import { formatParkedTime, makeThought, MAX_THOUGHT_LENGTH, parseParkingExport, twoWeekStats } from './domain';
 import { captureLicenseFromUrl, checkoutUrl, forgetLicense, getLicenseState, storeLicense, verifyLicense, type LicenseState } from './license';
 import type { Thought, ThoughtStatus } from './types';
 
-const DRAFT_KEY = 'thought-parking:draft';
-const CUE_KEY = 'thought-parking:return-cue';
+const REAL_STORAGE_PREFIX = 'thought-parking';
+const DEMO_STORAGE_PREFIX = 'demo:thought-parking';
 const DEFAULT_CUE = 'It’s safe here. Return to what you were doing.';
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -43,26 +43,29 @@ export class ThoughtParkingApp {
   private recordingTimer: number | undefined;
   private toastTimer: number | undefined;
   private installPrompt: InstallPrompt | undefined;
-  private license: LicenseState = getLicenseState();
+  private license: LicenseState = { hasToken: false, unlocked: false, checking: false };
   private isOnline = navigator.onLine;
+  private demo = false;
 
   constructor(root: HTMLElement) {
     this.root = root;
   }
 
   async init(): Promise<void> {
-    captureLicenseFromUrl();
-    this.license = getLicenseState();
+    this.demo = this.isDemoLocation();
+    setDatabaseName(this.demo ? 'demo:thought-parking' : 'thought-parking');
+    if (!this.demo) {
+      captureLicenseFromUrl();
+      this.license = getLicenseState();
+    }
     try {
       this.thoughts = await getThoughts();
+      if (this.demo) await this.ensureDemoSample();
     } catch (error) {
       this.storageError = error instanceof Error ? error.message : 'Local storage is unavailable.';
     }
 
-    addEventListener('popstate', () => {
-      this.reviewStarted = false;
-      this.render();
-    });
+    addEventListener('popstate', () => { void this.restoreLocation(); });
     addEventListener('online', () => { this.isOnline = true; this.render(); });
     addEventListener('offline', () => { this.isOnline = false; this.render(); });
     addEventListener('beforeinstallprompt', (event) => {
@@ -84,7 +87,7 @@ export class ThoughtParkingApp {
 
     this.render();
     void this.refreshNetworkState();
-    if (this.license.checking) {
+    if (!this.demo && this.license.checking) {
       this.license = await verifyLicense();
       this.render();
     }
@@ -109,17 +112,89 @@ export class ThoughtParkingApp {
   private handleGlobalKeys(event: KeyboardEvent): void {
     if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.code === 'Space') {
       event.preventDefault();
-      this.navigate('/');
+      void this.navigate('/');
       requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('#thought-input')?.focus());
     }
   }
 
-  private navigate(path: string): void {
+  private isDemoLocation(url = new URL(location.href)): boolean {
+    return url.pathname.replace(/\/+$/, '') === '/demo' || url.searchParams.get('demo') === '1';
+  }
+
+  private storageKey(name: string): string {
+    return `${this.demo ? DEMO_STORAGE_PREFIX : REAL_STORAGE_PREFIX}:${name}`;
+  }
+
+  private routePath(path: string): string {
+    const url = new URL(path, location.origin);
+    if (this.demo) {
+      if (url.pathname.replace(/\/+$/, '') === '/demo') return '/demo/';
+      url.searchParams.set('demo', '1');
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  private async navigate(path: string): Promise<void> {
     if (this.recorder?.state === 'recording') this.stopRecording();
-    if (location.pathname !== path) history.pushState({}, '', path);
+    const target = this.routePath(path);
+    const targetUrl = new URL(target, location.origin);
+    const enteringDemo = this.isDemoLocation(targetUrl);
+    if (location.pathname + location.search !== target) history.pushState({}, '', target);
+    if (enteringDemo !== this.demo) {
+      this.demo = enteringDemo;
+      setDatabaseName(this.demo ? 'demo:thought-parking' : 'thought-parking');
+      this.license = this.demo ? { hasToken: false, unlocked: false, checking: false } : getLicenseState();
+      this.thoughts = await getThoughts();
+      if (this.demo) await this.ensureDemoSample();
+    }
     this.reviewStarted = false;
-    this.render();
+    this.render(true);
     window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
+  private async restoreLocation(): Promise<void> {
+    const nextDemo = this.isDemoLocation();
+    if (nextDemo !== this.demo) {
+      this.demo = nextDemo;
+      setDatabaseName(this.demo ? 'demo:thought-parking' : 'thought-parking');
+      this.license = this.demo ? { hasToken: false, unlocked: false, checking: false } : getLicenseState();
+      this.thoughts = await getThoughts();
+      if (this.demo) await this.ensureDemoSample();
+    }
+    this.reviewStarted = false;
+    this.render(true);
+  }
+
+  private async ensureDemoSample(): Promise<void> {
+    if (this.thoughts.length) return;
+    const now = Date.now();
+    this.thoughts = [
+      { id: 'demo-bus-pass', text: 'Check whether the library keeps spare bus passes at the desk.', createdAt: now - 86_400_000, updatedAt: now - 86_400_000, captureMs: 12_000, status: 'parked' },
+      { id: 'demo-workshop', text: 'Ask Mina if Thursday’s workshop needs a quiet-room sign.', createdAt: now - 172_800_000, updatedAt: now - 172_800_000, captureMs: 9_000, status: 'parked' },
+      { id: 'demo-recipe', text: 'Save the oat-and-cherry snack recipe for the next grocery run.', createdAt: now - 259_200_000, updatedAt: now - 200_000_000, captureMs: 15_000, status: 'promoted', decidedAt: now - 200_000_000 },
+    ];
+    await saveThoughts(this.thoughts);
+  }
+
+  private async resetDemo(): Promise<void> {
+    await clearThoughts();
+    for (const key of ['draft', 'return-cue']) localStorage.removeItem(this.storageKey(key));
+    this.thoughts = [];
+    this.reviewStarted = false;
+    await this.ensureDemoSample();
+    this.render();
+    this.showToast('Sample data reset.');
+  }
+
+  private async startForReal(): Promise<void> {
+    if (!this.demo) return;
+    this.demo = false;
+    setDatabaseName('thought-parking');
+    this.license = getLicenseState();
+    this.thoughts = await getThoughts();
+    this.reviewStarted = false;
+    history.pushState({}, '', '/');
+    this.render(true);
   }
 
   private shell(content: string, current: ReturnType<typeof routeName>): string {
@@ -134,21 +209,23 @@ export class ThoughtParkingApp {
         <nav aria-label="Main navigation">
           <a href="/" data-route ${current === 'capture' ? 'aria-current="page"' : ''}>Capture</a>
           <a href="/review/" data-route ${current === 'review' ? 'aria-current="page"' : ''}>Review <span class="nav-count" aria-label="${countLabel(parked)} parked">${parked}</span></a>
-          <a href="/settings/" data-route ${current === 'settings' ? 'aria-current="page"' : ''}>My data</a>
+          ${this.demo ? '' : '<a href="/settings/" data-route ' + (current === 'settings' ? 'aria-current="page"' : '') + '>My data</a>'}
         </nav>
         <span class="network-state ${this.isOnline ? '' : 'is-offline'}" role="status">${this.isOnline ? 'On device' : 'Offline · still saving'}</span>
       </header>
+      ${this.demo ? `<aside class="demo-banner" aria-label="Demo controls"><strong>Demo — sample data, nothing is saved</strong><span>Three sample interruptions are kept apart from your data.</span><button id="reset-demo" type="button">Reset demo</button><button id="start-real" type="button">Start for real</button></aside>` : ''}
       ${content}
       <footer>
         <p>Private by default. Made for useful interruptions, not productivity guilt.</p>
         <nav aria-label="Legal"><a href="/privacy/" data-route>Privacy</a><a href="/terms/" data-route>Terms</a></nav>
         <p class="provenance">Original hero image generated for Thought Parking with the factory image model.</p>
       </footer>
+      <div id="route-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
       <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     `;
   }
 
-  private render(): void {
+  private render(announce = false): void {
     if (this.audioUrl) {
       URL.revokeObjectURL(this.audioUrl);
       this.audioUrl = '';
@@ -161,21 +238,50 @@ export class ThoughtParkingApp {
     if (current === 'privacy') content = this.privacyView();
     if (current === 'terms') content = this.termsView();
     this.root.innerHTML = this.shell(content, current);
+    this.setRouteMetadata(current);
     this.bindCommon();
     if (current === 'capture') this.bindCapture();
     if (current === 'review') this.bindReview();
     if (current === 'settings') this.bindSettings();
+    if (announce) this.announceRoute(current);
+  }
+
+  private setRouteMetadata(current: ReturnType<typeof routeName>): void {
+    const titles = {
+      capture: this.demo ? 'Demo — Thought Parking' : 'Thought Parking — capture interruptions',
+      review: 'Review — Thought Parking',
+      settings: 'My data — Thought Parking',
+      privacy: 'Privacy — Thought Parking',
+      terms: 'Terms — Thought Parking',
+    };
+    document.title = titles[current];
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = `${location.origin}${location.pathname}`;
+  }
+
+  private announceRoute(current: ReturnType<typeof routeName>): void {
+    requestAnimationFrame(() => {
+      const heading = document.querySelector<HTMLElement>('main h1');
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+      const names = { capture: this.demo ? 'Demo' : 'Capture', review: 'Review', settings: 'My data', privacy: 'Privacy', terms: 'Terms' };
+      const announcer = document.querySelector<HTMLElement>('#route-announcer');
+      if (announcer) announcer.textContent = `${names[current]} page`;
+    });
   }
 
   private captureView(): string {
     const parked = this.thoughts.filter((thought) => thought.status === 'parked').length;
-    const draft = localStorage.getItem(DRAFT_KEY) ?? '';
-    const cue = this.license.unlocked ? (localStorage.getItem(CUE_KEY) || DEFAULT_CUE) : DEFAULT_CUE;
+    const draft = localStorage.getItem(this.storageKey('draft')) ?? '';
+    const cue = this.license.unlocked ? (localStorage.getItem(this.storageKey('return-cue')) || DEFAULT_CUE) : DEFAULT_CUE;
     return `<main id="main" class="capture-layout">
       <section class="capture-intro" aria-labelledby="capture-title">
         <p class="eyebrow">Quick-capture deck · local only</p>
-        <h1 id="capture-title">Park it.<br><span>Go back.</span></h1>
-        <p class="lede">Catch the thought without deciding what it means. Review it later, on purpose.</p>
+        <h1 id="capture-title">Catch a thought.<br><span>Return to your work.</span></h1>
+        <p class="lede">For adults with ADHD who need to save an interruption before it pulls them from the work at hand.</p>
+        ${this.demo ? '<p class="demo-intro">Sample slips are ready below. Review them when you have a few minutes.</p>' : `<div class="first-actions"><a class="primary-action button-link" href="/demo/" data-route>Try it with sample data <span aria-hidden="true">→</span></a><p>See three sample interruptions. Nothing is saved to your data.</p><a class="text-link" href="#capture-form">Park a real thought</a><ul class="plain-facts"><li>Saved on this device</li><li>Works offline after the first visit</li><li>$7 supporter license, once</li></ul></div>`}
         <figure class="hero-art">
           <img src="/assets/cassette-still-life.webp" width="960" height="640" alt="An unlabeled cassette, loose ribbon, blank paper scraps, and a grease pencil on textured paper" fetchpriority="high" decoding="async">
           <figcaption>Side A: now. Side B: later.</figcaption>
@@ -255,12 +361,12 @@ export class ThoughtParkingApp {
           <p id="import-status" role="status"></p>
         </div>
       </section>
-      <section class="data-section supporter-section" aria-labelledby="support-title">
+      ${this.demo ? `<section class="data-section supporter-section" aria-labelledby="support-title"><div><p class="section-number">02 / demo boundary</p><h2 id="support-title">Sample data stays separate</h2><p>This demo reads and writes only its own sample database. Start for real before adding a license or changing your own return cue.</p></div></section>` : `<section class="data-section supporter-section" aria-labelledby="support-title">
         <div><p class="section-number">02 / optional upgrade</p><h2 id="support-title">Support the lot</h2><p>The full capture, voice, review, and backup workflow is free. A <strong>$7 one-time</strong> supporter license adds a private 14-day return snapshot and your own return cue.</p><p class="merchant-note">Secure checkout is hosted by Sociobot; Dodo is merchant of record. Refunds are handled there.</p>${verdictNotice}</div>
         <div class="license-card ${this.license.unlocked ? 'is-unlocked' : ''}">
-          ${this.license.unlocked ? `<p class="stamp">Supporter tape unlocked</p><div class="rhythm-stats"><div><strong>${stats.count}</strong><span>captures / 14 days</span></div><div><strong>${stats.percentage}%</strong><span>parked under 30 sec</span></div></div><p class="goal-note">The useful signal: 20+ captures and at least 70% under 30 seconds. This stays on your device.</p><form id="cue-form"><label for="custom-cue">Your return-to-work cue</label><input id="custom-cue" maxlength="120" value="${escapeHtml(localStorage.getItem(CUE_KEY) || DEFAULT_CUE)}"><button class="secondary-action" type="submit">Save cue</button></form><button id="forget-license" class="text-button" type="button">Forget license on this device</button>` : `<a class="primary-action button-link" href="${checkoutUrl}">Buy once · $7 <span aria-hidden="true">↗</span></a><details class="restore-license"><summary>Have a license?</summary><form id="license-form"><label for="license-input">Paste license token</label><input id="license-input" autocomplete="off" spellcheck="false" required><button class="secondary-action" type="submit">Verify and restore</button><p id="license-status" role="status">${this.license.checking ? 'Checking license…' : ''}</p></form></details>`}
+          ${this.license.unlocked ? `<p class="stamp">Supporter tape unlocked</p><div class="rhythm-stats"><div><strong>${stats.count}</strong><span>captures / 14 days</span></div><div><strong>${stats.percentage}%</strong><span>parked under 30 sec</span></div></div><p class="goal-note">The useful signal: 20+ captures and at least 70% under 30 seconds. This stays on your device.</p><form id="cue-form"><label for="custom-cue">Your return-to-work cue</label><input id="custom-cue" maxlength="120" value="${escapeHtml(localStorage.getItem(this.storageKey('return-cue')) || DEFAULT_CUE)}"><button class="secondary-action" type="submit">Save cue</button></form><button id="forget-license" class="text-button" type="button">Forget license on this device</button>` : `<a class="primary-action button-link" href="${checkoutUrl}">Buy once · $7 <span aria-hidden="true">↗</span></a><details class="restore-license"><summary>Have a license?</summary><form id="license-form"><label for="license-input">Paste license token</label><input id="license-input" autocomplete="off" spellcheck="false" required><button class="secondary-action" type="submit">Verify and restore</button><p id="license-status" role="status">${this.license.checking ? 'Checking license…' : ''}</p></form></details>`}
         </div>
-      </section>
+      </section>`}
       <section class="install-section" aria-labelledby="install-title"><div><p class="section-number">03 / offline</p><h2 id="install-title">Keep it within reach</h2><p>Install the app for an app-window shortcut. It remains useful without a connection.</p></div><button id="install-button" class="secondary-action" type="button" ${this.installPrompt ? '' : 'disabled'}>${this.installPrompt ? 'Install app' : 'Use browser menu to install'}</button></section>
     </main>`;
   }
@@ -277,8 +383,10 @@ export class ThoughtParkingApp {
     document.querySelectorAll<HTMLAnchorElement>('a[data-route]').forEach((link) => link.addEventListener('click', (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       event.preventDefault();
-      this.navigate(new URL(link.href).pathname);
+      void this.navigate(`${new URL(link.href).pathname}${new URL(link.href).search}`);
     }));
+    document.querySelector('#reset-demo')?.addEventListener('click', () => void this.resetDemo());
+    document.querySelector('#start-real')?.addEventListener('click', () => void this.startForReal());
   }
 
   private bindCapture(): void {
@@ -290,7 +398,7 @@ export class ThoughtParkingApp {
     input.addEventListener('focus', begin, { once: true });
     input.addEventListener('input', () => {
       begin();
-      localStorage.setItem(DRAFT_KEY, input.value);
+      localStorage.setItem(this.storageKey('draft'), input.value);
       count.textContent = `${input.value.length} / ${MAX_THOUGHT_LENGTH}`;
       this.justParked = false;
     });
@@ -319,7 +427,7 @@ export class ThoughtParkingApp {
     try {
       await saveThought(thought);
       this.thoughts.unshift(thought);
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(this.storageKey('draft'));
       this.audioBlob = undefined;
       this.captureStartedAt = undefined;
       this.justParked = true;
@@ -439,7 +547,7 @@ export class ThoughtParkingApp {
     document.querySelector<HTMLFormElement>('#cue-form')?.addEventListener('submit', (event) => {
       event.preventDefault();
       const input = document.querySelector<HTMLInputElement>('#custom-cue');
-      if (input?.value.trim()) localStorage.setItem(CUE_KEY, input.value.trim());
+      if (input?.value.trim()) localStorage.setItem(this.storageKey('return-cue'), input.value.trim());
       this.showToast('Return cue saved.');
     });
     document.querySelector('#forget-license')?.addEventListener('click', () => {

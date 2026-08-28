@@ -1,15 +1,28 @@
 import type { ParkingExport, PortableThought, Thought } from './types';
 
-const DB_NAME = 'thought-parking';
+const REAL_DB_NAME = 'thought-parking';
 const DB_VERSION = 1;
 const STORE = 'thoughts';
 
 let databasePromise: Promise<IDBDatabase> | undefined;
+let databaseName = REAL_DB_NAME;
+
+/**
+ * The demo deliberately uses a different IndexedDB database. Calling this
+ * before reading data guarantees a sample session cannot see or alter a
+ * visitor's real parking lot.
+ */
+export function setDatabaseName(name: string): void {
+  if (databaseName === name) return;
+  void databasePromise?.then((database) => database.close()).catch(() => undefined);
+  databasePromise = undefined;
+  databaseName = name;
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(databaseName, DB_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
       const store = database.createObjectStore(STORE, { keyPath: 'id' });
@@ -52,6 +65,13 @@ export async function saveThoughts(thoughts: Thought[]): Promise<void> {
   const transaction = db.transaction(STORE, 'readwrite');
   const store = transaction.objectStore(STORE);
   thoughts.forEach((thought) => store.put(thought));
+  await complete(transaction);
+}
+
+export async function clearThoughts(): Promise<void> {
+  const db = await openDatabase();
+  const transaction = db.transaction(STORE, 'readwrite');
+  transaction.objectStore(STORE).clear();
   await complete(transaction);
 }
 
