@@ -261,7 +261,7 @@ export class ThoughtParkingApp {
   }
 
   private privacyView(): string {
-    return `<main id="main" class="legal-page"><p class="eyebrow">Plain-language policy · August 28, 2026</p><h1>Privacy stays parked.</h1><p class="legal-lede">Thought Parking is designed so we do not receive your thoughts.</p><h2>What stays on your device</h2><p>Captured text, voice clips, decisions, capture timing, custom return cues, and license tokens are stored locally in your browser. They are not uploaded by the app. Clearing site data can erase them, so use Export JSON for a backup.</p><h2>What leaves your device</h2><p>When you buy or verify a supporter license, your browser contacts the Sociobot billing API with the license token. Checkout is hosted by Sociobot and Dodo, the merchant of record. Their systems process purchase and refund information under their own policies.</p><h2>Analytics and permissions</h2><p>There are no analytics, advertising trackers, third-party fonts, or runtime CDNs. Microphone access is requested only after you press “Record voice”; the resulting clip is kept in local storage. The service worker caches the app shell for offline use.</p><h2>Your choices</h2><p>Export at any time. Delete individual items by archiving them, or clear this site’s browser data to remove everything. You can forget a saved license from My data.</p><p><a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a></p></main>`;
+    return `<main id="main" class="legal-page"><p class="eyebrow">Plain-language policy · August 28, 2026</p><h1>Privacy stays parked.</h1><p class="legal-lede">Thought Parking is designed so we do not receive your thoughts.</p><h2>What stays on your device</h2><p>Captured text, voice clips, decisions, capture timing, custom return cues, and license tokens are stored locally in your browser. They are not uploaded by the app. Clearing site data can erase them, so use Export JSON for a backup.</p><h2>What leaves your device</h2><p>When you buy or verify a supporter license, your browser contacts the Sociobot billing API with the license token. Checkout is hosted by Sociobot and Dodo, the merchant of record. Their systems process purchase and refund information under their own policies.</p><h2>Analytics and permissions</h2><p>There are no analytics, advertising trackers, third-party fonts, or runtime CDNs. Microphone access is requested only after you press “Record voice”; the resulting clip is kept in local storage. The service worker caches the app shell for offline use.</p><h2>Your choices</h2><p>Export at any time. Archiving moves a thought out of the review queue but keeps it in your local history. Clear this site’s browser data to remove everything. You can forget a saved license from My data.</p><p><a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a></p></main>`;
   }
 
   private termsView(): string {
@@ -319,7 +319,6 @@ export class ThoughtParkingApp {
       this.captureStartedAt = undefined;
       this.justParked = true;
       this.render();
-      document.querySelector<HTMLTextAreaElement>('#thought-input')?.focus();
     } catch (saveError) {
       error.textContent = `${saveError instanceof Error ? saveError.message : 'The thought could not be saved.'} Copy it somewhere safe and try again.`;
       if (button) { button.disabled = false; button.innerHTML = 'Park thought <span aria-hidden="true">→</span>'; }
@@ -400,7 +399,7 @@ export class ThoughtParkingApp {
         try { await navigator.clipboard.writeText(thought.text); } catch { /* Clipboard is a convenience; promotion still succeeds. */ }
       }
       this.render();
-      this.showToast(status === 'promoted' ? 'Promoted and copied.' : 'Archived.', 'Undo', () => void this.restoreFromSnapshot(previous));
+      this.showToast(status === 'promoted' ? (thought.text ? 'Promoted and copied.' : 'Voice note promoted.') : 'Archived.', 'Undo', () => void this.restoreFromSnapshot(previous));
     } catch (error) {
       Object.assign(thought, previous);
       this.showToast(error instanceof Error ? error.message : 'That decision could not be saved.');

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://thought-parking.sociobot.in/sitemap.xml
