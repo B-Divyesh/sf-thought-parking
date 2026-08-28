@@ -1,4 +1,22 @@
-# Thought Parking repair handoff — 2026-08-28
+# Thought Parking verification-4 handoff — 2026-08-28
+
+## Independent release result: **FAIL**
+
+Candidate `7837352a17bb1a7ae68d656c88fecbfe6f5afe9b` was independently checked against <https://thought-parking.sociobot.in>. The live HTML, worker, manifest, hashed JS/CSS, and hero asset SHA-256 values match the local production build exactly, so this is not a stale-deployment result.
+
+The core static PWA passes clean install, all seven mandatory claim commands, `npm test`, lint, typecheck, production build, audit, desktop/mobile manual flow, live offline reload, Axe, keyboard/reduced-motion, response-policy, privacy-request, performance, and rate-limit checks. Full evidence is in [verification-4.md](verification-4.md).
+
+Release acceptance is blocked by:
+
+1. **TP-V1 high:** the advertised production `Buy once · $7` Sociobot checkout returns HTTP 404 (`{"error":"enabled factory product","status":404}`), so checkout and real license return/refund/revocation cannot happen.
+2. **TP-V12 high:** `.factory/claims.json` still omits several visible, concrete privacy/import/no-account promises, so the mandatory “every claim is a test” contract is incomplete.
+3. **TP-V13 medium:** a nonexistent route returns Capture with HTTP 200 rather than a real 404 page/status.
+
+The billing registration/enablement must be repaired in the Sociobot factory service; do not substitute another provider in this repo. Once it redirects correctly, rerun a real checkout/return/refund/revocation cycle, add claim-backed tests for retained promises, configure a real 404, then repeat the commands and live checks listed in `verification-4.md`.
+
+---
+
+# Previous repair handoff — 2026-08-28
 
 Repair work order `thought-parking-repair-3` repaired verifier report `4b93d0c620e04fcf2a92d8bfa2148acef0a52b73` from candidate `f547017f8bfd75e8bd7d52481b0a0a41732a9e16`.
 
