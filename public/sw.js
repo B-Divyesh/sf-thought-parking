@@ -1,4 +1,4 @@
-const VERSION = 'thought-parking-v1';
+const VERSION = 'thought-parking-v3';
 const BUILD_ASSETS = /* INJECT_BUILD_ASSETS */ [];
 const SHELL = [
   '/', '/index.html', '/offline.html', '/manifest.webmanifest',
@@ -26,6 +26,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (url.searchParams.has('network-probe')) {
+    event.respondWith(fetch(event.request).catch(() => new Response('', { status: 503 })));
+    return;
+  }
+
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -34,13 +39,13 @@ self.addEventListener('fetch', (event) => {
           caches.open(VERSION).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(async () => (await caches.match(event.request)) || (await caches.match('/index.html')) || caches.match('/offline.html'))
+        .catch(async () => (await caches.match(event.request, { ignoreSearch: true, ignoreVary: true })) || (await caches.match('/index.html', { ignoreVary: true })) || caches.match('/offline.html', { ignoreVary: true }))
     );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
+    caches.match(event.request, { ignoreSearch: true, ignoreVary: true }).then((cached) => cached || fetch(event.request).then((response) => {
       if (response.ok && ['style', 'script', 'image', 'font'].includes(event.request.destination)) {
         const copy = response.clone();
         caches.open(VERSION).then((cache) => cache.put(event.request, copy));

@@ -44,6 +44,7 @@ export class ThoughtParkingApp {
   private toastTimer: number | undefined;
   private installPrompt: InstallPrompt | undefined;
   private license: LicenseState = getLicenseState();
+  private isOnline = navigator.onLine;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -62,8 +63,8 @@ export class ThoughtParkingApp {
       this.reviewStarted = false;
       this.render();
     });
-    addEventListener('online', () => this.render());
-    addEventListener('offline', () => this.render());
+    addEventListener('online', () => { this.isOnline = true; this.render(); });
+    addEventListener('offline', () => { this.isOnline = false; this.render(); });
     addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
       this.installPrompt = event as InstallPrompt;
@@ -82,10 +83,27 @@ export class ThoughtParkingApp {
     addEventListener('keydown', (event) => this.handleGlobalKeys(event));
 
     this.render();
+    void this.refreshNetworkState();
     if (this.license.checking) {
       this.license = await verifyLicense();
       this.render();
     }
+  }
+
+  private async refreshNetworkState(): Promise<void> {
+    const wasOnline = this.isOnline;
+    if (!navigator.onLine) {
+      this.isOnline = false;
+      if (wasOnline !== this.isOnline) this.render();
+      return;
+    }
+    try {
+      const response = await fetch('/manifest.webmanifest?network-probe=1', { cache: 'no-store' });
+      this.isOnline = response.ok;
+    } catch {
+      this.isOnline = false;
+    }
+    if (wasOnline !== this.isOnline) this.render();
   }
 
   private handleGlobalKeys(event: KeyboardEvent): void {
@@ -118,7 +136,7 @@ export class ThoughtParkingApp {
           <a href="/review/" data-route ${current === 'review' ? 'aria-current="page"' : ''}>Review <span class="nav-count" aria-label="${countLabel(parked)} parked">${parked}</span></a>
           <a href="/settings/" data-route ${current === 'settings' ? 'aria-current="page"' : ''}>My data</a>
         </nav>
-        <span class="network-state ${navigator.onLine ? '' : 'is-offline'}" role="status">${navigator.onLine ? 'On device' : 'Offline · still saving'}</span>
+        <span class="network-state ${this.isOnline ? '' : 'is-offline'}" role="status">${this.isOnline ? 'On device' : 'Offline · still saving'}</span>
       </header>
       ${content}
       <footer>
