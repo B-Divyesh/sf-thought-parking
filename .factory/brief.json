@@ -1,0 +1,30 @@
+{
+  "slug": "thought-parking",
+  "title": "Thought Parking",
+  "territory": "utilities",
+  "user": "Adults with ADHD whose useful ideas interrupt current work and who need to capture them instantly without turning capture into task-planning.",
+  "evidence": [
+    {
+      "url": "https://hn.algolia.com/api/v1/items/46610156",
+      "date": "2026-01-13",
+      "quote_or_summary": "Ask HN received 141 comments on managing a constant stream of thoughts and ideas; replies describe the pull of the next shiny thought."
+    },
+    {
+      "url": "https://github.com/microsoft/vscode/issues/328807",
+      "date": "2026-08-03",
+      "quote_or_summary": "A user reports inconsistent microphone/dictation feedback across three capture surfaces, illustrating how even starting a quick capture can be cognitively disruptive."
+    }
+  ],
+  "recurrence": "A high-comment ADHD request and a distinct dictation-friction report point to capture latency and attention switching, not a shortage of to-do lists.",
+  "current_workaround": "Open a notes app, add an inbox task, send oneself a message, or try to remember the thought.",
+  "incumbents_and_gap": "Todoist, Things, Obsidian, and voice dictation are capable general tools. Their capture flows invite categorization, reminders, and backlogs at the moment the user needs to return to work.",
+  "smallest_useful_product": "Offline PWA with a single full-screen hotkey/voice capture, no tags at capture time, deliberate review windows, and an archive-or-promote decision. Non-goals: task manager, coaching, calendar, or AI prioritization.",
+  "success_measure": "In two weeks, users capture 20+ interruptions and return to their prior task within 30 seconds for at least 70% of captures.",
+  "artifact_class": "pwa-offline",
+  "monetization": "one-time — private, offline capture has enduring but modest utility.",
+  "constraints": "Voice clips and notes remain on device by default; accessibility settings must work before sign-in; do not make treatment or diagnostic claims.",
+  "est_build_effort": "S",
+  "why_distinct": "The product deliberately postpones organization, which is the opposite of a conventional productivity inbox.",
+  "confidence": 4,
+  "state": "RESEARCHED"
+}
