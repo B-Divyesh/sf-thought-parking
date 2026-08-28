@@ -1,65 +1,80 @@
-# Independent verification addendum — FAIL
+# Thought Parking repair handoff
 
-Verified 2026-08-28 for work order `thought-parking-verify-1`.
+Repair work order `thought-parking-repair-1`, completed 2026-08-28 against verifier report commit `1e630feb086d83232cb107a07915d3f83017b3b6` and candidate `4cdfc03a99748733bc0a7e948cad1dc80ed8b876`.
 
-- Tested commit: `4cdfc03a99748733bc0a7e948cad1dc80ed8b876`
-- Tested URL: <https://thought-parking.sociobot.in>
-- Deployment identity: live HTML, manifest, worker, hashed JS/CSS, and hero SHA-256 values match the clean local candidate build byte for byte.
-- Local gates: `npm ci`, `npm test` (3 unit + 11 executed browser checks), `npm run build`, and `npm audit --audit-level=low` passed. No lint command exists.
-- Live core: capture, validation, 4,000-character boundary, persistence, voice, review/archive/undo/promote, export/import recovery, keyboard, reduced motion, privacy, installability, service-worker update, and offline reload passed on desktop and 390px mobile. Axe found no serious/critical issues.
-- Lighthouse mobile: Performance 96, Accessibility 100, Best Practices 100, SEO 100; FCP 1.0 s, LCP 1.1 s, TBT 220 ms, CLS 0.
+## Repair result
 
-Release result is **FAIL**:
+- **TP-V2 fixed:** a token is no longer proof of purchase. New checkout-return and pasted tokens remain locked until the verify API returns `valid: true`. An unavailable or malformed response fails closed for a pasted token, removes it, and gives a recovery message. A previously cached positive verdict continues to work offline; a verified invalid/revoked verdict locks supporter features.
+- **TP-V3 fixed:** the wordmark, footer legal links, legal-page email links, and all other visible controls now expose at least a 44×44 CSS px hit area at 390px.
+- **TP-V4 fixed:** Azure Static Web Apps now serves `/assets/*` and icons with `public, max-age=31536000, immutable`, while HTML and `sw.js` use `no-cache` and the manifest uses a one-hour revalidated policy.
+- **TP-V5 fixed:** production now sends a restrictive same-origin CSP with `frame-ancestors 'none'`, `Permissions-Policy` allowing microphone only to self, `X-Frame-Options: DENY`, COOP, CORP, Referrer-Policy, and nosniff. The manifest is served as `application/manifest+json`.
+- The PWA release was advanced to 1.0.1 / cache `thought-parking-v4`, ensuring existing clients discover and activate this repair.
+- ESLint and explicit typecheck scripts were added so both requested gates exist.
 
-1. **High:** `https://api.sociobot.in/api/v1/products/thought-parking/checkout` returns HTTP 404, so the advertised `$7` purchase cannot start.
-2. **High:** if license verification is unavailable, any manually pasted token is stored and shown as unlocked instead of remaining unverified/locked.
-3. **Medium:** repeated mobile wordmark/footer/legal links have 18–21px target heights, below the required 44px baseline.
-4. **Low:** hashed assets receive only `public, must-revalidate, max-age=30`, not long-lived immutable caching.
-5. **Low:** CSP/frame protection and Permissions-Policy are absent.
+## Exact regression coverage
 
-Full commands, evidence, reproductions, response policies, hashes, and limitations are in `.factory/verification.md`. Fix the two high-severity billing defects and rerun a real production checkout/return/restore/revocation cycle before acceptance.
+`tests/e2e/app.spec.ts` now proves:
 
----
+1. an arbitrary manually pasted token cannot unlock or remain stored when verification is aborted;
+2. a previously verified cached license remains unlocked during an outage;
+3. a revoked license locks supporter features;
+4. the buy link uses the required production Sociobot checkout contract;
+5. every visible interactive target on all five routes meets 44×44 at 390px;
+6. the checked-in deployment policy includes immutable asset caching and the required security headers;
+7. the v4 worker retains `skipWaiting` and `clients.claim`, and the in-app update action is operable;
+8. ordinary text and voice capture contact only the product origin.
 
-# Thought Parking v1 — builder handoff
+Existing coverage for text/voice capture, persistence, validation, deliberate review, archive/promote/restore, legal routes, keyboard shortcuts, axe, responsive overflow, and true service-worker offline reload remains passing.
 
-Completed 2026-08-28 for work order `thought-parking-build-1`.
+## Clean verification evidence
 
-## What shipped
+- Clean install: moved the prior dependency tree aside and ran `npm ci`; 139 packages installed, 0 vulnerabilities.
+- `npm run lint`: pass.
+- `npm run typecheck`: pass.
+- `npm test`: pass — 3/3 Vitest tests and 23/23 applicable Playwright checks; 3 deliberate cross-project duplicates skipped. Desktop Chromium and 390×844 mobile both exercised.
+- `npm run build`: pass; `dist/index.html` is at the static root. Output is 30.15 KB JS (10.34 KB gzip), 16.45 KB CSS (4.37 KB gzip), no font payload, and 110.91 KB hero WebP.
+- `npm audit --audit-level=low`: 0 vulnerabilities.
+- Local factory URL verifier: pass in 651 ms with title, `lang=en`, one h1, main landmark, image alts, labeled buttons, and zero console/page errors.
+- Axe WCAG A/AA/2.1 AA: zero serious or critical findings across `/`, `/review/`, `/settings/`, `/privacy/`, and `/terms/` at desktop and 390px.
+- Local Lighthouse 12.8.2 mobile: Performance 99, Accessibility 100, Best Practices 100, SEO 100; FCP 0.9 s, LCP 2.0 s, TBT 0 ms, CLS 0.
+- Manual screenshots reviewed at 1440×1000 and 390×844; the cassette-era design is intact with no horizontal overflow.
+- Offline reload: pass with previously stored IndexedDB data. Update prompt/action: pass. Reduced-motion, keyboard hotkeys, and focus behavior remain covered and passing.
 
-- A production Vite + vanilla TypeScript offline PWA in `dist/`.
-- Friction-light text capture with draft persistence, `Ctrl/⌘ + Enter` submit, and global `Ctrl/⌘ + Shift + Space` capture focus.
-- Clear, permission-aware MediaRecorder voice capture (two-minute maximum) with local IndexedDB blob storage and playback.
-- A deliberate review gate, oldest-first one-at-a-time decisions, archive/promote actions, clipboard promotion, immediate Undo, and a restorable handled log.
-- Versioned JSON export/import including audio; imports validate their schema and resolve matching IDs last-write-wins.
-- A hand-written service worker that precaches the hashed build, direct routes, artwork, icons, and offline fallback; navigation and stored data were tested with Playwright's network context offline.
-- Installable manifest with 192px, 512px, and maskable icons, shortcuts, themed splash colors, update-ready notification, `skipWaiting`, and `clients.claim`.
-- Optional $7 one-time supporter unlock through the Sociobot product-slug checkout/verify contract. It adds only a local 14-day return snapshot and custom cue; capture, voice, review, backup, and accessibility remain free. License verdicts are cached for one day and cached access works offline.
-- Direct static `/privacy/`, `/terms/`, `/review/`, and `/settings/` entry points generated by the build.
-- A cassette-era zine visual system and original generated hero artwork with full prompt/provenance in `.factory/design.md`.
+## Deployment and live evidence
 
-## Verification
+- Repair code commit: `decc2c1528c4ce7c2a642b7a39b2435998d6c39f`, pushed to `origin/main`.
+- Deployed `dist/` with `/opt/fleet/lib/deploy-static.sh thought-parking dist`; Azure deployment ID `de8c8387-836c-4276-83f7-f5c138c54a1b` succeeded.
+- Live routes `/`, `/review/`, `/settings/`, `/privacy/`, and `/terms/` each return HTTP 200.
+- Live factory URL verifier: pass in 989 ms with zero console/page errors.
+- Live PWA check: zero manifest errors, zero installability errors, active controller, and cache `thought-parking-v4`.
+- Live Lighthouse 12.8.2 mobile: Performance 99, Accessibility 100, Best Practices 100, SEO 100; FCP 1.1 s, LCP 1.8 s, TBT 80 ms, CLS 0.
+- Local/live SHA-256 values match byte-for-byte:
 
-Exact build command: `npm run build`. Output: `dist/`, with `dist/index.html` at its root. A clean dependency install uses `npm ci`.
+| Artifact | SHA-256 |
+| --- | --- |
+| `index.html` | `c389c40360c16a93271c83edf81b0dddf4d06db1d1c5eae64bdaad084e23bc85` |
+| `manifest.webmanifest` | `cae8f5fb39c3c77ed4f0d59b16c71c714c1f8b6ed04ef58f071001453c3892ee` |
+| `sw.js` | `74f704a521a55ca81461156651333c0f2f126c06d8c4f289833a0c68ac2dfd69` |
+| `assets/index-Ra5QSSDy.js` | `a90b301a41f2732cd1e7d2af8233e8c06fb13e9075c14f8e2ef710922b1fe269` |
+| `assets/index-efF61TYp.css` | `f4ff95f0691c7ba72e205b5a2d921dfd05b32c9cd8ee43dd98c6272e2a4520ea` |
+| `assets/cassette-still-life.webp` | `aecb556de287e6cbc8a76a32dd2b56f5616a0619b6e9b1984958e4bb6659e5c1` |
 
-- `npm test`: passed — 3 Vitest unit tests; 11 Playwright checks passed across desktop Chromium and 390×844 mobile. One duplicate mobile service-worker case is intentionally skipped; the offline behavior is exercised in Chromium.
-- Offline test: passed after capture and IndexedDB persistence, including offline route navigation and review.
-- Playwright axe integration: no serious or critical WCAG A/AA findings on capture, review, data, privacy, or terms screens in desktop and mobile projects.
-- `/opt/fleet/lib/verify-url.sh http://127.0.0.1:4173 …`: passed — title present, `lang="en"`, one `h1`, main landmark, zero missing alt attributes, zero unlabeled buttons, zero console/page errors; measured load 687 ms in its local run.
-- Lighthouse 12.8.2 mobile: Performance 99, Accessibility 100, Best Practices 100, SEO 100. FCP 0.9 s, LCP 2.0 s, CLS 0, TBT 0 ms.
-- Production bundles: 29.69 KB JS (10.20 KB gzip), 16.32 KB CSS (4.36 KB gzip), 112 KB hero WebP. No runtime dependencies, external fonts, analytics, trackers, or third-party CDNs.
-- `npm audit`: 0 vulnerabilities.
-- Manual visual review completed at 1440×1000 and 390×844. Keyboard focus, reduced motion, safe-area padding, 44px targets, and no horizontal mobile overflow are implemented.
+Live response checks confirm the asset, HTML, worker, and manifest cache policies plus CSP, Permissions-Policy, X-Frame-Options, COOP, and CORP exactly as configured.
 
-## Known gaps / factory follow-up
+## Remaining external release blocker
 
-- The factory still needs to register `thought-parking` with the Sociobot billing engine and configure its production return URL; no product ID is hard-coded. Staging can build with `VITE_BILLING_BASE_URL=https://pilot-api.sociobot.in`.
-- Audio container/codec follows each browser's MediaRecorder implementation. The exported backup retains the MIME type, but playback after importing onto a different browser depends on that browser's codec support.
-- Cross-device sync is intentionally absent. Users move data with export/import, matching the local-first privacy brief.
-- Android uses the installable PWA. A Capacitor wrapper was not added because no native-only capability is required for v1.
+**TP-V1 remains blocked outside this repository.** After the repaired deployment, `GET https://api.sociobot.in/api/v1/products/thought-parking/checkout` still returns HTTP 404 with `{"error":"enabled factory product","status":404}`. The public product catalog does not contain `thought-parking`. The app’s URL is the required Sociobot contract and is regression-checked; changing it or integrating Dodo directly would violate the product contract.
 
-## Next sensible checks after deploy
+The prescribed `fleet/new-paid-product.sh` registration helper is not present in this worker image, and `AGENTS.md` explicitly prohibits changing billing from this repository. Therefore no billing/provider state was mutated. A successful production checkout/return/refund cycle cannot be run until the factory registers and enables the production product at $7 with return URL `https://thought-parking.sociobot.in/`. The live verify endpoint itself is healthy: an arbitrary token returns HTTP 200, `cache-control: no-store`, and `{ "valid": false, "reason": "invalid" }`.
 
-1. Register the billing product and run one hosted test checkout/return/restore cycle.
-2. Run the same URL verifier against `https://thought-parking.sociobot.in` after static deployment.
-3. Smoke-test microphone permission and installed-app launch on one physical Android device and Safari/iOS.
+No other known gaps were introduced. Physical microphone and Safari/iOS hardware remain outside this container; Chromium fake-media and denial paths pass.
+
+## Run it
+
+```sh
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
