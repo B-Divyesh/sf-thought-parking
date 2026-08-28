@@ -1,4 +1,27 @@
-# Thought Parking v1 — handoff
+# Independent verification addendum — FAIL
+
+Verified 2026-08-28 for work order `thought-parking-verify-1`.
+
+- Tested commit: `4cdfc03a99748733bc0a7e948cad1dc80ed8b876`
+- Tested URL: <https://thought-parking.sociobot.in>
+- Deployment identity: live HTML, manifest, worker, hashed JS/CSS, and hero SHA-256 values match the clean local candidate build byte for byte.
+- Local gates: `npm ci`, `npm test` (3 unit + 11 executed browser checks), `npm run build`, and `npm audit --audit-level=low` passed. No lint command exists.
+- Live core: capture, validation, 4,000-character boundary, persistence, voice, review/archive/undo/promote, export/import recovery, keyboard, reduced motion, privacy, installability, service-worker update, and offline reload passed on desktop and 390px mobile. Axe found no serious/critical issues.
+- Lighthouse mobile: Performance 96, Accessibility 100, Best Practices 100, SEO 100; FCP 1.0 s, LCP 1.1 s, TBT 220 ms, CLS 0.
+
+Release result is **FAIL**:
+
+1. **High:** `https://api.sociobot.in/api/v1/products/thought-parking/checkout` returns HTTP 404, so the advertised `$7` purchase cannot start.
+2. **High:** if license verification is unavailable, any manually pasted token is stored and shown as unlocked instead of remaining unverified/locked.
+3. **Medium:** repeated mobile wordmark/footer/legal links have 18–21px target heights, below the required 44px baseline.
+4. **Low:** hashed assets receive only `public, must-revalidate, max-age=30`, not long-lived immutable caching.
+5. **Low:** CSP/frame protection and Permissions-Policy are absent.
+
+Full commands, evidence, reproductions, response policies, hashes, and limitations are in `.factory/verification.md`. Fix the two high-severity billing defects and rerun a real production checkout/return/restore/revocation cycle before acceptance.
+
+---
+
+# Thought Parking v1 — builder handoff
 
 Completed 2026-08-28 for work order `thought-parking-build-1`.
 
