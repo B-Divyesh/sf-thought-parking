@@ -348,7 +348,13 @@ footer .provenance { grid-column: 1 / -1; color: #cfc3aa; font-size: 11px; }
   .site-header nav a:last-child { font-size: 0; }
   .site-header nav a:last-child::after { content: "Data"; font-size: 12px; }
   .nav-count { min-width: 22px; height: 22px; font-size: 11px; }
+  /* Keep the compact online state out of the way, but never hide a loss of
+     connectivity: offline capture is a core promise on phones. */
   .network-state { display: none; }
+  .network-state.is-offline {
+    display: inline-flex;
+    align-items: center;
+  }
   .capture-layout { min-height: 0; padding: 32px 18px 60px; }
   .capture-intro { display: block; }
   .capture-intro h1 { font-size: clamp(3rem, 15vw, 4.2rem); }

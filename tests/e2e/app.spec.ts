@@ -115,6 +115,22 @@ test('locks supporter features when a verified license is revoked', async ({ pag
   await expect(page.getByText('Supporter tape unlocked')).toHaveCount(0);
 });
 
+test('keeps a rate-limited license restore locked and explains recovery', async ({ page }) => {
+  await page.route('**/api/v1/products/thought-parking/verify**', (route) => route.fulfill({
+    status: 429,
+    headers: { 'Retry-After': '60' },
+    contentType: 'application/json',
+    body: JSON.stringify({ error: 'Too many requests' }),
+  }));
+  await page.goto('/settings/');
+  await page.getByText('Have a license?').click();
+  await page.getByLabel('Paste license token').fill('rate-limited-token');
+  await page.getByRole('button', { name: 'Verify and restore' }).click();
+  await expect(page.getByText(/Could not reach the license service/)).toBeVisible();
+  await expect(page.getByText('Supporter tape unlocked')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('sb_license:thought-parking'))).toBeNull();
+});
+
 test('meets the 44px touch-target baseline on every route at 390px', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-390', 'Touch-target geometry is specific to the 390px project.');
   for (const path of ['/', '/review/', '/settings/', '/privacy/', '/terms/']) {
@@ -142,7 +158,7 @@ test('ships immutable assets and restrictive production response policies', asyn
   expect(config.globalHeaders['Permissions-Policy']).toContain('microphone=(self)');
   expect(config.globalHeaders['X-Frame-Options']).toBe('DENY');
   const worker = await (await request.get('/sw.js')).text();
-  expect(worker).toContain("const VERSION = 'thought-parking-v4'");
+  expect(worker).toContain("const VERSION = 'thought-parking-v5'");
   expect(worker).toContain('self.skipWaiting()');
   expect(worker).toContain('self.clients.claim()');
 });
@@ -169,14 +185,21 @@ test('keeps core capture traffic on the product origin', async ({ page }) => {
 });
 
 test('loads the app and existing data while offline', async ({ page, context }, testInfo) => {
-  test.skip(testInfo.project.name !== 'chromium', 'One browser is sufficient for the service-worker offline path.');
+  expect(['chromium', 'mobile-390']).toContain(testInfo.project.name);
   await page.goto('/');
   await page.getByLabel('What pulled your attention?').fill('Offline thought');
   await page.getByRole('button', { name: /Park thought/ }).click();
   await page.waitForFunction(() => navigator.serviceWorker?.controller);
   await context.setOffline(true);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByText('Offline · still saving')).toBeVisible();
+  const offlineState = page.getByRole('status').filter({ hasText: 'Offline · still saving' });
+  await expect(offlineState).toBeVisible();
+  if (testInfo.project.name === 'mobile-390') {
+    const box = await offlineState.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  }
   await page.getByRole('link', { name: /Review/ }).click();
   await page.getByRole('button', { name: /Start this review/ }).click();
   await expect(page.getByText('Offline thought')).toBeVisible();

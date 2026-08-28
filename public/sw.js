@@ -1,4 +1,4 @@
-const VERSION = 'thought-parking-v4';
+const VERSION = 'thought-parking-v5';
 const BUILD_ASSETS = /* INJECT_BUILD_ASSETS */ [];
 const SHELL = [
   '/', '/index.html', '/offline.html', '/manifest.webmanifest',
