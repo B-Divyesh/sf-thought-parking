@@ -220,7 +220,7 @@ export class ThoughtParkingApp {
       <footer>
         <p>Capture interrupting thoughts locally, then review them later.</p>
         <nav aria-label="Legal"><a href="/privacy/" data-route>Privacy</a><a href="/terms/" data-route>Terms</a></nav>
-        <p class="provenance">Built by Param Factory · version 1.0.4 · original image generated for Thought Parking.</p>
+        <p class="provenance">Built by Param Factory · version 1.0.5 · original image generated for Thought Parking.</p>
       </footer>
       <div id="route-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
       <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>

@@ -190,7 +190,7 @@ test('ships immutable assets and restrictive production response policies', asyn
   expect(config.globalHeaders['X-Frame-Options']).toBe('DENY');
   expect(config.responseOverrides['404']).toEqual({ rewrite: '/404.html' });
   const worker = await (await request.get('/sw.js')).text();
-  expect(worker).toContain("const VERSION = 'thought-parking-v7'");
+  expect(worker).toContain("const VERSION = 'thought-parking-v8'");
   expect(worker).toContain('self.skipWaiting()');
   expect(worker).toContain('self.clients.claim()');
 });
