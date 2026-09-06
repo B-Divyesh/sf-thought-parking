@@ -5,7 +5,8 @@ import type { Thought, ThoughtStatus } from './types';
 
 const REAL_STORAGE_PREFIX = 'thought-parking';
 const DEMO_STORAGE_PREFIX = 'demo:thought-parking';
-const DEFAULT_CUE = 'It’s safe here. Return to what you were doing.';
+const DEFAULT_CUE = 'Your thought is saved. Return to what you were doing.';
+type RouteName = 'capture' | 'review' | 'settings' | 'privacy' | 'terms' | 'not-found';
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -15,13 +16,14 @@ function escapeHtml(value: string): string {
   })[character] ?? character);
 }
 
-function routeName(): 'capture' | 'review' | 'settings' | 'privacy' | 'terms' {
+function routeName(): RouteName {
   const route = location.pathname.replace(/\/+$/, '') || '/';
   if (route === '/review') return 'review';
   if (route === '/settings') return 'settings';
   if (route === '/privacy') return 'privacy';
   if (route === '/terms') return 'terms';
-  return 'capture';
+  if (route === '/' || route === '/demo') return 'capture';
+  return 'not-found';
 }
 
 function countLabel(count: number): string {
@@ -73,7 +75,7 @@ export class ThoughtParkingApp {
       this.installPrompt = event as InstallPrompt;
       this.render();
     });
-    addEventListener('sw-update', () => this.showToast('A fresh tape is ready.', 'Update now', () => {
+    addEventListener('sw-update', () => this.showToast('An update is ready.', 'Update now', () => {
       sessionStorage.setItem('thought-parking:apply-update', '1');
       navigator.serviceWorker.getRegistration().then((registration) => registration?.waiting?.postMessage({ type: 'SKIP_WAITING' }));
     }));
@@ -197,7 +199,7 @@ export class ThoughtParkingApp {
     this.render(true);
   }
 
-  private shell(content: string, current: ReturnType<typeof routeName>): string {
+  private shell(content: string, current: RouteName): string {
     const parked = this.thoughts.filter((thought) => thought.status === 'parked').length;
     return `
       <a class="skip-link" href="#main">Skip to main content</a>
@@ -216,9 +218,9 @@ export class ThoughtParkingApp {
       ${this.demo ? `<aside class="demo-banner" aria-label="Demo controls"><strong>Demo — sample data, nothing is saved</strong><span>Three sample interruptions are kept apart from your data.</span><button id="reset-demo" type="button">Reset demo</button><button id="start-real" type="button">Start for real</button></aside>` : ''}
       ${content}
       <footer>
-        <p>Private by default. Made for useful interruptions, not productivity guilt.</p>
+        <p>Capture interrupting thoughts locally, then review them later.</p>
         <nav aria-label="Legal"><a href="/privacy/" data-route>Privacy</a><a href="/terms/" data-route>Terms</a></nav>
-        <p class="provenance">Original hero image generated for Thought Parking with the factory image model.</p>
+        <p class="provenance">Built by Param Factory · version 1.0.4 · original image generated for Thought Parking.</p>
       </footer>
       <div id="route-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
       <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
@@ -237,6 +239,7 @@ export class ThoughtParkingApp {
     if (current === 'settings') content = this.settingsView();
     if (current === 'privacy') content = this.privacyView();
     if (current === 'terms') content = this.termsView();
+    if (current === 'not-found') content = this.notFoundView();
     this.root.innerHTML = this.shell(content, current);
     this.setRouteMetadata(current);
     this.bindCommon();
@@ -246,27 +249,28 @@ export class ThoughtParkingApp {
     if (announce) this.announceRoute(current);
   }
 
-  private setRouteMetadata(current: ReturnType<typeof routeName>): void {
+  private setRouteMetadata(current: RouteName): void {
     const titles = {
       capture: this.demo ? 'Demo — Thought Parking' : 'Thought Parking — capture interruptions',
       review: 'Review — Thought Parking',
       settings: 'My data — Thought Parking',
       privacy: 'Privacy — Thought Parking',
       terms: 'Terms — Thought Parking',
+      'not-found': 'Page not found — Thought Parking',
     };
     document.title = titles[current];
     const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (canonical) canonical.href = `${location.origin}${location.pathname}`;
   }
 
-  private announceRoute(current: ReturnType<typeof routeName>): void {
+  private announceRoute(current: RouteName): void {
     requestAnimationFrame(() => {
       const heading = document.querySelector<HTMLElement>('main h1');
       if (heading) {
         heading.tabIndex = -1;
         heading.focus({ preventScroll: true });
       }
-      const names = { capture: this.demo ? 'Demo' : 'Capture', review: 'Review', settings: 'My data', privacy: 'Privacy', terms: 'Terms' };
+      const names = { capture: this.demo ? 'Demo' : 'Capture', review: 'Review', settings: 'My data', privacy: 'Privacy', terms: 'Terms', 'not-found': 'Page not found' };
       const announcer = document.querySelector<HTMLElement>('#route-announcer');
       if (announcer) announcer.textContent = `${names[current]} page`;
     });
@@ -278,33 +282,33 @@ export class ThoughtParkingApp {
     const cue = this.license.unlocked ? (localStorage.getItem(this.storageKey('return-cue')) || DEFAULT_CUE) : DEFAULT_CUE;
     return `<main id="main" class="capture-layout">
       <section class="capture-intro" aria-labelledby="capture-title">
-        <p class="eyebrow">Quick-capture deck · local only</p>
-        <h1 id="capture-title">Catch a thought.<br><span>Return to your work.</span></h1>
+        <p class="eyebrow">Quick capture · stored locally</p>
+        <h1 id="capture-title">Capture interrupting thoughts quickly.</h1>
         <p class="lede">For adults with ADHD who need to save an interruption before it pulls them from the work at hand.</p>
-        ${this.demo ? '<p class="demo-intro">Sample slips are ready below. Review them when you have a few minutes.</p>' : `<div class="first-actions"><a class="primary-action button-link" href="/demo/" data-route>Try it with sample data <span aria-hidden="true">→</span></a><p>See three sample interruptions. Nothing is saved to your data.</p><a class="text-link" href="#capture-form">Park a real thought</a><ul class="plain-facts"><li>Saved on this device</li><li>Works offline after the first visit</li><li>$7 supporter license, once</li></ul></div>`}
+        ${this.demo ? '<p class="demo-intro">Three sample thoughts are ready. Review them when you have a few minutes.</p>' : `<div class="first-actions"><a class="primary-action button-link" href="/demo/" data-route>Try it with sample data <span aria-hidden="true">→</span></a><p>See three sample interruptions. Nothing is saved to your data.</p><a class="text-link" href="#capture-form">Capture a real thought</a><ul class="plain-facts"><li>Saved on this device</li><li>Works offline after the first visit</li><li>$7 one-time supporter license</li></ul></div>`}
         <figure class="hero-art">
           <img src="/assets/cassette-still-life.webp" width="960" height="640" alt="An unlabeled cassette, loose ribbon, blank paper scraps, and a grease pencil on textured paper" fetchpriority="high" decoding="async">
-          <figcaption>Side A: now. Side B: later.</figcaption>
+          <figcaption>Capture now. Review later.</figcaption>
         </figure>
       </section>
       <section class="capture-sheet" aria-label="Quick capture">
         ${this.justParked ? `<div class="return-cue" role="status"><span aria-hidden="true">✓</span><div><strong>Thought parked.</strong><p>${escapeHtml(cue)}</p></div></div>` : ''}
         ${this.storageError ? `<div class="error-note" role="alert"><strong>Parking is unavailable.</strong><p>${escapeHtml(this.storageError)} Check private-browsing or storage settings, then reload.</p></div>` : ''}
-        <div class="sheet-label"><span>Interrupt slip</span><span>No. ${(this.thoughts.length + 1).toString().padStart(3, '0')}</span></div>
+        <div class="sheet-label"><span>Thought</span><span>No. ${(this.thoughts.length + 1).toString().padStart(3, '0')}</span></div>
         <form id="capture-form">
           <label for="thought-input">What pulled your attention?</label>
-          <textarea id="thought-input" name="thought" maxlength="${MAX_THOUGHT_LENGTH}" rows="7" placeholder="Type the thought—no tags, dates, or decisions." ${this.storageError ? 'disabled' : ''}>${escapeHtml(draft)}</textarea>
+          <textarea id="thought-input" name="thought" maxlength="${MAX_THOUGHT_LENGTH}" rows="7" placeholder="Type the thought. You can decide what to do with it later." ${this.storageError ? 'disabled' : ''}>${escapeHtml(draft)}</textarea>
           <div class="input-meta"><span id="character-count">${draft.length} / ${MAX_THOUGHT_LENGTH}</span><span class="shortcut-hint"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> to park</span></div>
           <div class="voice-strip">
             <button class="record-button" id="record-button" type="button" ${this.storageError ? 'disabled' : ''} aria-describedby="voice-status"><span class="mic-mark" aria-hidden="true"></span><span>Record voice</span></button>
-            <div id="voice-status" class="voice-status" role="status">Or leave a short voice clip. It never leaves this device.</div>
+            <div id="voice-status" class="voice-status" role="status">Or add a short voice clip. It stays on this device.</div>
           </div>
           <button class="primary-action" type="submit" ${this.storageError ? 'disabled' : ''}>Park thought <span aria-hidden="true">→</span></button>
           <p id="capture-error" class="form-error" role="alert"></p>
         </form>
         <div class="lot-status">
           <div><strong>${parked}</strong><span>waiting for review</span></div>
-          <a href="/review/" data-route>Open parking lot <span aria-hidden="true">↗</span></a>
+          <a href="/review/" data-route>Review thoughts <span aria-hidden="true">↗</span></a>
         </div>
         <p class="hotkey-note"><span aria-hidden="true">✦</span> From anywhere: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Space</kbd></p>
       </section>
@@ -316,19 +320,19 @@ export class ThoughtParkingApp {
     const handled = this.thoughts.filter((thought) => thought.status !== 'parked').sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0));
     let reviewBody: string;
     if (!parked.length) {
-      reviewBody = `<div class="empty-state"><div class="empty-reel" aria-hidden="true">◎—◎</div><h2>The lot is clear.</h2><p>There’s nothing asking for a decision. That is a real finish line.</p><a class="button-link" href="/" data-route>Return to capture</a></div>`;
+      reviewBody = `<div class="empty-state"><div class="empty-reel" aria-hidden="true">◎—◎</div><h2>No thoughts are waiting for review.</h2><p>Capture a thought when an interruption comes up. Review it later when you have time.</p><a class="button-link" href="/" data-route>Capture a thought</a></div>`;
     } else if (!this.reviewStarted) {
-      reviewBody = `<div class="review-gate"><p class="stamp">${countLabel(parked.length)} waiting</p><h2>Review is a separate mode.</h2><p>Start only when you have a few minutes. You’ll see one thought at a time, oldest first—no sorting, scoring, or backlog grooming.</p><button id="start-review" class="primary-action" type="button">Start this review <span aria-hidden="true">→</span></button></div>`;
+      reviewBody = `<div class="review-gate"><p class="stamp">${countLabel(parked.length)} waiting</p><h2>Review one thought at a time.</h2><p>Start when you have a few minutes. The oldest thought appears first. Archive it or promote it without sorting a task list.</p><button id="start-review" class="primary-action" type="button">Start review <span aria-hidden="true">→</span></button></div>`;
     } else {
       const thought = parked[0];
       if (thought.audio) this.audioUrl = URL.createObjectURL(thought.audio);
       reviewBody = `<div class="review-session">
-        <div class="review-progress"><span>Now deciding</span><span>${parked.length} left</span></div>
+        <div class="review-progress"><span>Reviewing now</span><span>${parked.length} left</span></div>
         <article class="thought-card" data-id="${thought.id}">
-          <p class="thought-time">Parked ${formatParkedTime(thought.createdAt)}</p>
+          <p class="thought-time">Captured ${formatParkedTime(thought.createdAt)}</p>
           <p class="thought-text">${thought.text ? escapeHtml(thought.text) : '<em>Voice note</em>'}</p>
           ${this.audioUrl ? `<audio controls preload="metadata" src="${this.audioUrl}">Your browser cannot play this local voice clip.</audio>` : ''}
-          <div class="decision-help"><p><strong>Archive</strong> means “not for now.”</p><p><strong>Promote</strong> means “ready to take elsewhere” and copies the text.</p></div>
+          <div class="decision-help"><p><strong>Archive</strong> removes this thought from the review list.</p><p><strong>Promote</strong> copies the text so you can use it elsewhere.</p></div>
           <div class="decision-actions">
             <button class="secondary-action" type="button" data-decision="archived">Archive</button>
             <button class="primary-action" type="button" data-decision="promoted">Promote <span aria-hidden="true">→</span></button>
@@ -337,7 +341,7 @@ export class ThoughtParkingApp {
       </div>`;
     }
     return `<main id="main" class="review-page">
-      <div class="page-heading"><p class="eyebrow">Deliberate review window</p><h1>Open the parking lot.</h1><p>Nothing here is overdue. Decide only what deserves another life.</p></div>
+      <div class="page-heading"><p class="eyebrow">Review when you are ready</p><h1>Review parked thoughts.</h1><p>There are no due dates. Choose only what you want to keep or use elsewhere.</p></div>
       ${this.storageError ? `<div class="error-note" role="alert">${escapeHtml(this.storageError)}</div>` : reviewBody}
       ${handled.length ? `<details class="handled-log"><summary>Recently handled <span>${handled.length}</span></summary><ul>${handled.slice(0, 20).map((thought) => `<li><span class="status-tape status-${thought.status}">${thought.status}</span><p>${escapeHtml(thought.text || 'Voice note')}</p><button type="button" data-restore="${thought.id}">Put back</button></li>`).join('')}</ul></details>` : ''}
     </main>`;
@@ -352,31 +356,35 @@ export class ThoughtParkingApp {
         : `This license is no longer active${this.license.reason ? ` (${escapeHtml(this.license.reason.replaceAll('_', ' '))})` : ''}. The free capture experience is unchanged.`}</p>`
       : '';
     return `<main id="main" class="data-page">
-      <div class="page-heading"><p class="eyebrow">Your device, your data</p><h1>Keep the keys.</h1><p>Thoughts and voice clips live in this browser’s IndexedDB. There is no account and no sync.</p></div>
+      <div class="page-heading"><p class="eyebrow">Your device, your data</p><h1>Back up your thoughts.</h1><p>Thoughts and voice clips stay in this browser. You can use the app without an account or sync.</p></div>
       <section class="data-section" aria-labelledby="backup-title">
-        <div><p class="section-number">01 / backup</p><h2 id="backup-title">Take the whole box</h2><p>Export a complete JSON backup, including voice clips. Import uses last-write-wins when IDs match.</p></div>
+        <div><p class="section-number">01 / backup</p><h2 id="backup-title">Export and import</h2><p>Export a complete JSON backup, including voice clips. If a backup has the same thought ID, the newer version replaces the older one.</p></div>
         <div class="data-actions">
           <button id="export-button" class="primary-action" type="button" ${this.storageError ? 'disabled' : ''}>Export JSON</button>
           <label class="file-button" for="import-file">Import JSON</label><input id="import-file" class="visually-hidden" type="file" accept="application/json,.json" ${this.storageError ? 'disabled' : ''}>
           <p id="import-status" role="status"></p>
         </div>
       </section>
-      ${this.demo ? `<section class="data-section supporter-section" aria-labelledby="support-title"><div><p class="section-number">02 / demo boundary</p><h2 id="support-title">Sample data stays separate</h2><p>This demo reads and writes only its own sample database. Start for real before adding a license or changing your own return cue.</p></div></section>` : `<section class="data-section supporter-section" aria-labelledby="support-title">
-        <div><p class="section-number">02 / optional upgrade</p><h2 id="support-title">Support the lot</h2><p>The full capture, voice, review, and backup workflow is free. A <strong>$7 one-time</strong> supporter license adds a private 14-day return snapshot and your own return cue.</p><p class="merchant-note">Secure checkout is hosted by Sociobot; Dodo is merchant of record. Refunds are handled there.</p>${verdictNotice}</div>
+      ${this.demo ? `<section class="data-section supporter-section" aria-labelledby="support-title"><div><p class="section-number">02 / demo boundary</p><h2 id="support-title">Keep sample data separate</h2><p>This demo reads and writes only its own sample database. Start for real before adding a license or changing your own return cue.</p></div></section>` : `<section class="data-section supporter-section" aria-labelledby="support-title">
+        <div><p class="section-number">02 / optional upgrade</p><h2 id="support-title">Supporter license</h2><p>Capture, voice, review, and backup stay free. A <strong>$7 one-time</strong> supporter license adds a private 14-day return snapshot and a custom return cue.</p><p class="merchant-note">Sociobot hosts checkout. Dodo is the merchant of record and handles refunds.</p>${verdictNotice}</div>
         <div class="license-card ${this.license.unlocked ? 'is-unlocked' : ''}">
-          ${this.license.unlocked ? `<p class="stamp">Supporter tape unlocked</p><div class="rhythm-stats"><div><strong>${stats.count}</strong><span>captures / 14 days</span></div><div><strong>${stats.percentage}%</strong><span>parked under 30 sec</span></div></div><p class="goal-note">The useful signal: 20+ captures and at least 70% under 30 seconds. This stays on your device.</p><form id="cue-form"><label for="custom-cue">Your return-to-work cue</label><input id="custom-cue" maxlength="120" value="${escapeHtml(localStorage.getItem(this.storageKey('return-cue')) || DEFAULT_CUE)}"><button class="secondary-action" type="submit">Save cue</button></form><button id="forget-license" class="text-button" type="button">Forget license on this device</button>` : `<a class="primary-action button-link" href="${checkoutUrl}">Buy once · $7 <span aria-hidden="true">↗</span></a><details class="restore-license"><summary>Have a license?</summary><form id="license-form"><label for="license-input">Paste license token</label><input id="license-input" autocomplete="off" spellcheck="false" required><button class="secondary-action" type="submit">Verify and restore</button><p id="license-status" role="status">${this.license.checking ? 'Checking license…' : ''}</p></form></details>`}
+          ${this.license.unlocked ? `<p class="stamp">Supporter license active</p><div class="rhythm-stats"><div><strong>${stats.count}</strong><span>captures / 14 days</span></div><div><strong>${stats.percentage}%</strong><span>captured under 30 sec</span></div></div><p class="goal-note">This local view helps you notice your capture pattern over the last 14 days.</p><form id="cue-form"><label for="custom-cue">Your return-to-work cue</label><input id="custom-cue" maxlength="120" value="${escapeHtml(localStorage.getItem(this.storageKey('return-cue')) || DEFAULT_CUE)}"><button class="secondary-action" type="submit">Save cue</button></form><button id="forget-license" class="text-button" type="button">Forget license on this device</button>` : `<a class="primary-action button-link" href="${checkoutUrl}">Buy once · $7 <span aria-hidden="true">↗</span></a><details class="restore-license"><summary>Have a license?</summary><form id="license-form"><label for="license-input">Paste license token</label><input id="license-input" autocomplete="off" spellcheck="false" required><button class="secondary-action" type="submit">Verify and restore</button><p id="license-status" role="status">${this.license.checking ? 'Checking license…' : ''}</p></form></details>`}
         </div>
       </section>`}
-      <section class="install-section" aria-labelledby="install-title"><div><p class="section-number">03 / offline</p><h2 id="install-title">Keep it within reach</h2><p>Install the app for an app-window shortcut. It remains useful without a connection.</p></div><button id="install-button" class="secondary-action" type="button" ${this.installPrompt ? '' : 'disabled'}>${this.installPrompt ? 'Install app' : 'Use browser menu to install'}</button></section>
+      <section class="install-section" aria-labelledby="install-title"><div><p class="section-number">03 / offline</p><h2 id="install-title">Install for offline use</h2><p>Install the app for an app-window shortcut. After the first visit, it works without a connection.</p></div><button id="install-button" class="secondary-action" type="button" ${this.installPrompt ? '' : 'disabled'}>${this.installPrompt ? 'Install app' : 'Use browser menu to install'}</button></section>
     </main>`;
   }
 
   private privacyView(): string {
-    return `<main id="main" class="legal-page"><p class="eyebrow">Plain-language policy · August 28, 2026</p><h1>Privacy stays parked.</h1><p class="legal-lede">Thought Parking is designed so we do not receive your thoughts.</p><h2>What stays on your device</h2><p>Captured text, voice clips, decisions, capture timing, custom return cues, and license tokens are stored locally in your browser. They are not uploaded by the app. Clearing site data can erase them, so use Export JSON for a backup.</p><h2>What leaves your device</h2><p>When you buy or verify a supporter license, your browser contacts the Sociobot billing API with the license token. Checkout is hosted by Sociobot and Dodo, the merchant of record. Their systems process purchase and refund information under their own policies.</p><h2>Analytics and permissions</h2><p>There are no analytics, advertising trackers, third-party fonts, or runtime CDNs. Microphone access is requested only after you press “Record voice”; the resulting clip is kept in local storage. The service worker caches the app shell for offline use.</p><h2>Your choices</h2><p>Export at any time. Archiving moves a thought out of the review queue but keeps it in your local history. Clear this site’s browser data to remove everything. You can forget a saved license from My data.</p><p><a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a></p></main>`;
+    return `<main id="main" class="legal-page"><p class="eyebrow">Privacy policy · September 6, 2026</p><h1>Privacy for Thought Parking.</h1><p class="legal-lede">Thought Parking stores thoughts in your browser instead of an account.</p><h2>Information stored in your browser</h2><p>Captured text, voice clips, decisions, capture timing, and custom return cues stay in this browser. The app does not upload them. Clearing site data can erase them, so use Export JSON for a backup.</p><h2>Billing information</h2><p>When you choose to buy or verify a supporter license, your browser sends the license token to the Sociobot billing API. Sociobot hosts checkout. Dodo is the merchant of record and handles purchase and refund information under its own policies.</p><h2>Tracking and microphone access</h2><p>The app makes no analytics, advertising, third-party font, or runtime CDN requests during capture, review, backup, or voice recording. It asks for microphone access only after you press “Record voice”. The recorded clip stays in your browser.</p><h2>Your choices</h2><p>Export at any time. Archiving removes a thought from the review list and keeps it in local history. Clear this site’s browser data to remove local data. You can forget a saved license from My data.</p><p><a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a></p></main>`;
   }
 
   private termsView(): string {
-    return `<main id="main" class="legal-page"><p class="eyebrow">Terms · August 28, 2026</p><h1>A small, honest utility.</h1><p class="legal-lede">Use Thought Parking to capture interruptions—not as medical care or guaranteed storage.</p><h2>The service</h2><p>The app is provided “as is” for personal note capture. It does not diagnose, treat, coach, prioritize, or replace professional advice. You are responsible for backups and for the content you record.</p><h2>Supporter purchase</h2><p>The optional supporter unlock is a $7 one-time purchase for the listed features on compatible devices. Sociobot/Dodo is the merchant of record. Checkout, receipts, refunds, and license revocation are handled through that service. A refunded or revoked license may stop unlocking supporter features; core free features remain available.</p><h2>Acceptable use</h2><p>Do not misuse the billing or verification endpoints, interfere with the app, or use it in violation of law. Because data remains local, we generally cannot recover deleted notes or move them without your exported backup.</p><h2>Changes and liability</h2><p>We may improve or discontinue the app. To the extent permitted by law, the service comes without warranties and liability is limited to the amount you paid for it.</p><p><a href="mailto:support@sociobot.in">support@sociobot.in</a></p></main>`;
+    return `<main id="main" class="legal-page"><p class="eyebrow">Terms · September 6, 2026</p><h1>Terms for Thought Parking.</h1><p class="legal-lede">Use Thought Parking for personal note capture, not medical care or guaranteed storage.</p><h2>The service</h2><p>The app is provided “as is” for personal note capture. It does not diagnose, treat, coach, prioritize, or replace professional advice. You are responsible for backups and the content you record.</p><h2>Supporter purchase</h2><p>The optional supporter license is a $7 one-time purchase for the listed features on compatible devices. Sociobot/Dodo is the merchant of record. Checkout, receipts, refunds, and license revocation are handled through that service. A refunded or revoked license may stop supporter features. Core free features remain available.</p><h2>Acceptable use</h2><p>Do not misuse billing or verification endpoints, interfere with the app, or use it in violation of law. Local data cannot usually be recovered after deletion or moved without an exported backup.</p><h2>Changes and liability</h2><p>We may improve or discontinue the app. To the extent permitted by law, the service comes without warranties and liability is limited to the amount you paid for it.</p><p><a href="mailto:support@sociobot.in">support@sociobot.in</a></p></main>`;
+  }
+
+  private notFoundView(): string {
+    return `<main id="main" class="legal-page not-found-page"><p class="eyebrow">404</p><h1>Page not found.</h1><p class="legal-lede">This address does not lead to a Thought Parking page.</p><a class="primary-action button-link" href="/" data-route>Go to capture</a></main>`;
   }
 
   private bindCommon(): void {
@@ -612,7 +620,7 @@ export class ThoughtParkingApp {
     this.license = await verifyLicense(true);
     if (this.license.unlocked) {
       this.render();
-      this.showToast('Supporter tape unlocked.');
+      this.showToast('Supporter license active.');
     } else {
       status.textContent = this.license.reason === 'verification_unavailable'
         ? 'Could not reach the license service. Nothing was unlocked or saved; check your connection and try again.'

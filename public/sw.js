@@ -1,7 +1,7 @@
-const VERSION = 'thought-parking-v6';
+const VERSION = 'thought-parking-v7';
 const BUILD_ASSETS = /* INJECT_BUILD_ASSETS */ [];
 const SHELL = [
-  '/', '/index.html', '/offline.html', '/manifest.webmanifest',
+  '/', '/index.html', '/404.html', '/offline.html', '/manifest.webmanifest',
   '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png',
   '/assets/cassette-still-life.webp', '/privacy/', '/terms/', '/review/', '/settings/', '/demo/', ...BUILD_ASSETS
 ];

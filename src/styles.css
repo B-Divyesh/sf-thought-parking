@@ -378,7 +378,7 @@ footer .provenance { grid-column: 1 / -1; color: #cfc3aa; font-size: 11px; }
   }
   .capture-layout { min-height: 0; padding: 32px 18px 60px; }
   .capture-intro { display: block; }
-  .capture-intro h1 { font-size: clamp(3rem, 15vw, 4.2rem); }
+  .capture-intro h1 { font-size: clamp(2.65rem, 12vw, 3.5rem); }
   .lede { margin: 18px 0 0; }
   .first-actions { margin-top: 22px; }
   .demo-banner { padding: 10px 18px; align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; }

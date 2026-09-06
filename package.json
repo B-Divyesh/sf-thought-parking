@@ -1,6 +1,6 @@
 {
   "name": "thought-parking",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build && node scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "node scripts/serve-dist.mjs",
     "test": "vitest run && playwright test",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"
